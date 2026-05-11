@@ -13,7 +13,13 @@ st.set_page_config(
     layout="wide"
 )
 
-DATA_FILE = Path("reservations.csv")
+# =============================
+# GitHub / Streamlit Cloud 배포용 경로 설정
+# =============================
+# 로컬 실행과 GitHub 배포 환경 모두에서 reservations.csv를
+# 현재 파이썬 파일과 같은 폴더에 저장하도록 설정합니다.
+BASE_DIR = Path(__file__).resolve().parent
+DATA_FILE = BASE_DIR / "reservations.csv"
 
 GROUPS = [f"{i}조" for i in range(1, 11)]
 AVAILABLE_TIMES = [
@@ -154,96 +160,81 @@ with notice_col:
     st.markdown("### 📢 전체 공지사항")
     st.info(
         """
- ### 전체 공지사항
-
-- 장소는 116 입니다
-- 21~23일은 철도학회 참석으로 실험 불가능합니다.
-- 매주 금요일 9~12시까지는 대학원 수업이라 불가능하고 오후부터 이용 가능합니다.
-- 추가 문의사항이 있으면 조교 번호로 연락 및 128로 오세요
+        **예약 안내**
+        
+        - 날짜를 먼저 선택한 뒤 시간을 선택하세요.
+        - 한 조가 여러 시간대를 동시에 예약할 수 있습니다.
+        - 예약 변경/취소는 아래의 내 예약 변경 또는 취소 메뉴에서 가능합니다.
         """
     )
 
-left, right = st.columns([2, 1])
+# =============================
+# 1. 조장 정보
+# =============================
+st.divider()
+st.subheader("1. 조장 정보")
+
+group = st.selectbox("본인 조", GROUPS)
+leader_name = st.text_input("조장 이름", placeholder="예: 홍길동")
+
+if leader_name.strip():
+    st.success(f"{group} 조장 {leader_name}님")
 
 # =============================
-# 왼쪽: 달력
+# 2. 날짜 선택 / 3. 시간 선택
 # =============================
+st.divider()
+left, right = st.columns([1, 1])
+
 with left:
-    st.subheader("1. 날짜 선택")
+    st.subheader("2. 날짜 선택")
 
-    month_col1, month_col2 = st.columns(2)
-    with month_col1:
-        if st.button("2026년 5월", use_container_width=True):
-            st.session_state.selected_month = 5
-            st.session_state.selected_date = None
-    with month_col2:
-        if st.button("2026년 6월", use_container_width=True):
-            st.session_state.selected_month = 6
-            st.session_state.selected_date = None
-
-    selected_month = st.session_state.selected_month
-    reserved_dates = get_reserved_dates()
-
-    st.markdown(f"<div class='calendar-title'>{YEAR}년 {selected_month}월</div>", unsafe_allow_html=True)
-    st.markdown(
-        "<div class='legend'>🔵 예약 있음 &nbsp;&nbsp; ✅ 현재 선택한 날짜</div>",
-        unsafe_allow_html=True,
+    selected_month = st.selectbox(
+        "월 선택",
+        MONTHS,
+        format_func=lambda month: f"2026년 {month}월",
     )
 
-    weekday_cols = st.columns(7)
-    for i, day_name in enumerate(WEEKDAYS):
-        with weekday_cols[i]:
-            st.markdown(f"<div class='weekday-box'>{day_name}</div>", unsafe_allow_html=True)
+    if selected_month == 5:
+        min_day = date(YEAR, 5, 1)
+        max_day = date(YEAR, 5, 31)
+    else:
+        min_day = date(YEAR, 6, 1)
+        max_day = date(YEAR, 6, 30)
+    
+    day_options = [
+    date(YEAR, selected_month, day)
+    for day in range(1, max_day.day + 1)
+]
 
-    cal = calendar.Calendar(firstweekday=0)
-    month_weeks = cal.monthdatescalendar(YEAR, selected_month)
+    selected_date = st.selectbox(
+    "실험 날짜 선택",
+    day_options,
+    format_func=lambda d: d.strftime("%Y년 %m월 %d일"),
+)
 
-    for week in month_weeks:
-        cols = st.columns(7)
-        for i, current_day in enumerate(week):
-            with cols[i]:
-                if current_day.month != selected_month:
-                    st.button(" ", key=f"empty-{selected_month}-{current_day}", disabled=True)
-                else:
-                    date_str = current_day.strftime("%Y-%m-%d")
-                    is_reserved = date_str in reserved_dates
-                    is_selected = st.session_state.selected_date == current_day
+    st.session_state.selected_month = selected_month
+    st.session_state.selected_date = selected_date
 
-                    label = str(current_day.day)
-                    if is_selected:
-                        label = f"✅ {current_day.day}"
-                    elif is_reserved:
-                        label = f"🔵 {current_day.day}"
+    reserved_dates = get_reserved_dates()
+    selected_date_str = selected_date.strftime("%Y-%m-%d")
 
-                    if st.button(label, key=f"day-{date_str}", use_container_width=True):
-                        st.session_state.selected_date = current_day
+    if selected_date_str in reserved_dates:
+        st.info("🔵 이 날짜에는 이미 예약이 있습니다.")
+    else:
+        st.success("✅ 선택 가능한 날짜입니다.")
 
-# =============================
-# 오른쪽: 새 예약 입력
-# =============================
 with right:
-    st.subheader("2. 조장 정보")
-
-    group = st.selectbox("본인 조", GROUPS)
-    leader_name = st.text_input("조장 이름", placeholder="예: 홍길동")
-
-    if leader_name.strip():
-        st.success(f"{group} 조장 {leader_name}님")
-
-    st.divider()
     st.subheader("3. 시간 선택")
 
-    if st.session_state.selected_date is None:
-        st.warning("먼저 달력에서 날짜를 선택하세요.")
-        reservation_times = []
-    else:
-        st.info(f"선택한 날짜: **{st.session_state.selected_date.strftime('%Y년 %m월 %d일')}**")
-        reservation_times = st.multiselect(
-            "실험 시간 - 여러 개 선택 가능",
-            AVAILABLE_TIMES,
-            placeholder="원하는 시간을 모두 선택하세요",
-            key="new_reservation_times",
-        )
+    st.info(f"선택한 날짜: **{st.session_state.selected_date.strftime('%Y년 %m월 %d일')}**")
+
+    reservation_times = st.multiselect(
+        "실험 시간 - 여러 개 선택 가능",
+        AVAILABLE_TIMES,
+        placeholder="원하는 시간을 모두 선택하세요",
+        key="new_reservation_times",
+    )
 
     st.divider()
     st.subheader("4. 공지사항")
@@ -255,9 +246,7 @@ with right:
     )
 
     if st.button("예약하기", type="primary", use_container_width=True):
-        if st.session_state.selected_date is None:
-            st.error("날짜를 먼저 선택해주세요.")
-        elif not leader_name.strip():
+        if not leader_name.strip():
             st.error("조장 이름을 입력해주세요.")
         elif not reservation_times:
             st.error("시간을 하나 이상 선택해주세요.")
@@ -323,12 +312,19 @@ else:
             st.dataframe(selected_group_df, use_container_width=True, hide_index=True)
 
             st.markdown("#### 새 예약 내용")
-            new_date = st.date_input(
+            change_date_options = [
+                date(YEAR, 5, day) for day in range(1, 32)
+            ] + [
+                date(YEAR, 6, day) for day in range(1, 31)
+            ]
+
+            old_date_index = change_date_options.index(old_date) if old_date in change_date_options else 0
+
+            new_date = st.selectbox(
                 "새 날짜 - 5월과 6월 모두 이동 가능",
-                value=old_date,
-                min_value=MIN_DATE,
-                max_value=MAX_DATE,
-                format="YYYY.MM.DD",
+                change_date_options,
+                index=old_date_index,
+                format_func=lambda d: d.strftime("%Y년 %m월 %d일"),
                 key=f"bulk_new_date_{selected_old_date_str}",
             )
 
@@ -390,12 +386,19 @@ else:
             old_notice = str(selected_row["공지사항"])
 
             st.markdown("#### 새 예약 내용")
-            new_date = st.date_input(
+            change_date_options = [
+                date(YEAR, 5, day) for day in range(1, 32)
+            ] + [
+                date(YEAR, 6, day) for day in range(1, 31)
+            ]
+
+            old_date_index = change_date_options.index(old_date) if old_date in change_date_options else 0
+
+            new_date = st.selectbox(
                 "새 날짜 - 5월과 6월 모두 이동 가능",
-                value=old_date,
-                min_value=MIN_DATE,
-                max_value=MAX_DATE,
-                format="YYYY.MM.DD",
+                change_date_options,
+                index=old_date_index,
+                format_func=lambda d: d.strftime("%Y년 %m월 %d일"),
                 key=f"single_new_date_{selected_id}",
             )
 
@@ -512,7 +515,11 @@ else:
 # =============================
 # 실행 방법
 # =============================
-with st.expander("실행 방법 보기"):
+with st.expander("실행 및 GitHub 배포 방법 보기"):
+    st.markdown("""
+### 1. 로컬 실행
+아래 명령어로 먼저 실행 확인하세요.
+""")
     st.code(
         """
 pip install streamlit pandas
@@ -520,6 +527,46 @@ streamlit run Scheduling.py
 """,
         language="bash",
     )
+
+    st.markdown("""
+### 2. requirements.txt 만들기
+같은 폴더에 `requirements.txt` 파일을 만들고 아래 내용을 넣으세요.
+""")
+    st.code(
+        """
+streamlit
+pandas
+""",
+        language="txt",
+    )
+
+    st.markdown("""
+### 3. GitHub 업로드
+GitHub에서 새 repository를 만든 뒤, VSCode 터미널에서 아래 명령어를 실행하세요.
+""")
+    st.code(
+        """
+git init
+git add .
+git commit -m "experiment reservation app"
+git branch -M main
+git remote add origin https://github.com/본인아이디/레포이름.git
+git push -u origin main
+""",
+        language="bash",
+    )
+
+    st.markdown("""
+### 4. Streamlit Cloud 배포
+Streamlit Cloud에서 아래처럼 설정하세요.
+
+- Repository: GitHub에 올린 레포
+- Branch: main
+- Main file path: Scheduling.py
+
+⚠️ 현재 버전은 `reservations.csv`에 저장하는 방식입니다. Streamlit Cloud에서는 서버가 재시작되면 CSV 데이터가 초기화될 수 있습니다. 실제 여러 명이 오래 쓰려면 Google Sheet 또는 Supabase 연동을 추천합니다.
+""")
+
 
 
 
