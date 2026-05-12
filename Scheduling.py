@@ -165,6 +165,7 @@ with notice_col:
         - 실험장소는 116 강의실입니다
         - 5월21~23일 철도학회 일정으로 실험 불가합니다
         - 매주 금요일 116에서 대학원 수업이 9:00~12:00까지 진행되니 금요일에 하실 학생은 오후에 이용바랍니다
+        - 실험종료일은 6/4일입니다
         - 궁금한사항 조교:김한비 또는 128강의실로오세요
         """
     )
@@ -514,59 +515,131 @@ else:
     )
 
 # =============================
-# 실행 방법
+# 전체 예약 현황
 # =============================
-with st.expander("실행 및 GitHub 배포 방법 보기"):
-    st.markdown("""
-### 1. 로컬 실행
-아래 명령어로 먼저 실행 확인하세요.
-""")
-    st.code(
-        """
-pip install streamlit pandas
-streamlit run Scheduling.py
-""",
-        language="bash",
+st.divider()
+st.subheader("📋 실험 예약 현황표")
+
+reservations = load_reservations()
+
+if reservations.empty:
+    st.info("아직 예약된 실험 일정이 없습니다.")
+
+else:
+    reservations = reservations.sort_values(
+        by=["예약날짜", "실험시간", "조"],
+        ascending=True,
+    ).reset_index(drop=True)
+
+    st.markdown("### 🗑️ 예약 선택 삭제")
+
+    delete_options = []
+
+    for _, row in reservations.iterrows():
+        label = (
+            f"ID {row['예약ID']} | "
+            f"{row['조']} | "
+            f"{row['조장명']} | "
+            f"{row['예약날짜']} | "
+            f"{row['실험시간']}"
+        )
+        delete_options.append(label)
+
+    selected_delete_labels = st.multiselect(
+        "삭제할 예약을 선택하세요",
+        delete_options,
+        placeholder="삭제할 예약 선택"
     )
 
-    st.markdown("""
-### 2. requirements.txt 만들기
-같은 폴더에 `requirements.txt` 파일을 만들고 아래 내용을 넣으세요.
-""")
-    st.code(
-        """
-streamlit
-pandas
-""",
-        language="txt",
+    if st.button("선택한 예약 삭제하기", type="secondary", use_container_width=True):
+        if not selected_delete_labels:
+            st.warning("삭제할 예약을 먼저 선택해주세요.")
+        else:
+            delete_ids = [
+                int(label.split("|")[0].replace("ID", "").strip())
+                for label in selected_delete_labels
+            ]
+
+            delete_reservation_ids(delete_ids)
+            st.success("선택한 예약이 삭제되었습니다.")
+            st.rerun()
+
+    st.divider()
+
+    # 표시용 테이블 생성
+    board = reservations.copy()
+
+    board["예약자"] = (
+        board["조"].astype(str)
+        + " / "
+        + board["조장명"].astype(str)
     )
 
-    st.markdown("""
-### 3. GitHub 업로드
-GitHub에서 새 repository를 만든 뒤, VSCode 터미널에서 아래 명령어를 실행하세요.
-""")
-    st.code(
-        """
-git init
-git add .
-git commit -m "experiment reservation app"
-git branch -M main
-git remote add origin https://github.com/본인아이디/레포이름.git
-git push -u origin main
-""",
-        language="bash",
+    board["예약일시"] = (
+        board["예약날짜"].astype(str)
+        + " / "
+        + board["실험시간"].astype(str)
     )
 
-    st.markdown("""
-### 4. Streamlit Cloud 배포
-Streamlit Cloud에서 아래처럼 설정하세요.
+    board["공지사항"] = (
+        board["공지사항"]
+        .fillna("")
+        .astype(str)
+        .str.replace("\n", " ")
+    )
 
-- Repository: GitHub에 올린 레포
-- Branch: main
-- Main file path: Scheduling.py
+    board = board[["예약자", "예약일시", "공지사항"]]
+    board.index = board.index + 1
 
-⚠️ 현재 버전은 `reservations.csv`에 저장하는 방식입니다. Streamlit Cloud에서는 서버가 재시작되면 CSV 데이터가 초기화될 수 있습니다. 실제 여러 명이 오래 쓰려면 Google Sheet 또는 Supabase 연동을 추천합니다.
-""")
+    st.markdown(
+        """
+        <style>
+        .reservation-board-title {
+            background-color: #1f2937;
+            color: white;
+            text-align: center;
+            font-size: 28px;
+            font-weight: 800;
+            padding: 16px;
+            border-radius: 14px 14px 0 0;
+            margin-top: 10px;
+        }
+
+        .reservation-board table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+            color: black;
+            font-size: 17px;
+        }
+
+        .reservation-board th {
+            background-color: #f3f4f6;
+            border: 1px solid #d1d5db;
+            padding: 12px;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .reservation-board td {
+            border: 1px solid #d1d5db;
+            padding: 12px;
+            vertical-align: middle;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        "<div class='reservation-board-title'>실험 예약 현황표</div>",
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        f"<div class='reservation-board'>{board.to_html(escape=False)}</div>",
+        unsafe_allow_html=True,
+    )
 
 
 
