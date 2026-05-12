@@ -453,82 +453,7 @@ else:
 # 전체 예약 현황
 # =============================
 st.divider()
-
-reservations = load_reservations()
-
-if reservations.empty:
-    st.info("아직 예약된 실험 일정이 없습니다.")
-else:
-    reservations = reservations.sort_values(
-        by=["예약날짜", "실험시간", "조"],
-        ascending=True,
-    ).reset_index(drop=True)
-
-    board = reservations.copy()
-    board["예약자명"] = board["조"].astype(str) + " " + board["조장명"].astype(str)
-    board["분류"] = board["예약날짜"].astype(str) + " / " + board["실험시간"].astype(str)
-    board["면 및"] = board["공지사항"].fillna("").astype(str)
-
-    board = board[["예약자명", "분류", "면 및"]]
-    board.index = board.index + 1
-
-    st.markdown(
-        """
-        <style>
-        .reservation-board-title {
-            background-color: #263238;
-            color: white;
-            text-align: center;
-            font-size: 28px;
-            font-weight: 900;
-            padding: 16px;
-            border-radius: 14px 14px 0 0;
-            border: 2px solid #4b5563;
-        }
-        .reservation-board table {
-            width: 100%;
-            border-collapse: collapse;
-            background-color: white;
-            color: black;
-            font-size: 18px;
-        }
-        .reservation-board th {
-            background-color: #f3f4f6;
-            color: black;
-            text-align: center;
-            border: 2px solid #111827;
-            padding: 12px;
-            font-weight: 800;
-        }
-        .reservation-board td {
-            border: 2px solid #111827;
-            padding: 14px;
-            min-height: 38px;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown("<div class='reservation-board-title'>실험 예약 현황표</div>", unsafe_allow_html=True)
-    st.markdown(
-        f"<div class='reservation-board'>{board.to_html(escape=False)}</div>",
-        unsafe_allow_html=True,
-    )
-
-    csv = reservations.to_csv(index=False, encoding="utf-8-sig")
-    st.download_button(
-        label="예약 현황 CSV 다운로드",
-        data=csv,
-        file_name="experiment_reservations.csv",
-        mime="text/csv",
-        use_container_width=True,
-    )
-
-# =============================
-# 전체 예약 현황
-# =============================
-st.divider()
+st.subheader("📋 실험 예약 현황표")
 
 reservations = load_reservations()
 
@@ -541,7 +466,7 @@ else:
         ascending=True,
     ).reset_index(drop=True)
 
-    st.markdown("### 🗑️ 선택 내역 삭제")
+    st.markdown("### 🗑️ 예약 선택 삭제")
 
     delete_options = []
 
@@ -556,14 +481,14 @@ else:
         delete_options.append(label)
 
     selected_delete_labels = st.multiselect(
-        "삭제할 내역을 선택하세요",
+        "삭제할 예약을 선택하세요",
         delete_options,
-        placeholder="삭제할 내역 선택"
+        placeholder="삭제할 예약 선택"
     )
 
-    if st.button("선택 내역 삭제", type="secondary", use_container_width=True):
+    if st.button("선택한 예약 삭제하기", type="secondary", use_container_width=True):
         if not selected_delete_labels:
-            st.warning("삭제할 내역을 먼저 선택해주세요.")
+            st.warning("삭제할 예약을 먼저 선택해주세요.")
         else:
             delete_ids = [
                 int(label.split("|")[0].replace("ID", "").strip())
@@ -571,11 +496,12 @@ else:
             ]
 
             delete_reservation_ids(delete_ids)
-            st.success("선택한 내역이 삭제되었습니다.")
+            st.success("선택한 예약이 삭제되었습니다.")
             st.rerun()
 
     st.divider()
 
+    # 표시용 테이블 생성
     board = reservations.copy()
 
     board["예약자"] = (
