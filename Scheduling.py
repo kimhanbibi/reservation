@@ -32,7 +32,7 @@ YEAR = 2026
 MIN_DATE = date(YEAR, 5, 1)
 MAX_DATE = date(YEAR, 6, 30)
 MONTHS = [5, 6]
-WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"]
+WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"]ㄴㅅ
 
 # =============================
 # CSS
@@ -441,7 +441,6 @@ else:
 # 전체 예약 현황
 # =============================
 st.divider()
-st.subheader("📋 실험 예약 현황표")
 
 reservations = load_reservations()
 
