@@ -79,7 +79,15 @@ def load_reservations():
     columns = ["예약ID", "예약시간", "조", "조장명", "예약날짜", "실험시간", "공지사항"]
 
     if DATA_FILE.exists():
-        df = pd.read_csv(DATA_FILE)
+        try:
+            df = pd.read_csv(DATA_FILE, encoding="utf-8-sig")
+        except pd.errors.EmptyDataError:
+            df = pd.DataFrame(columns=columns)
+            df.to_csv(DATA_FILE, index=False, encoding="utf-8-sig")
+            return df
+
+        if df.empty:
+            return pd.DataFrame(columns=columns)
 
         if "예약ID" not in df.columns:
             df.insert(0, "예약ID", range(1, len(df) + 1))
@@ -91,6 +99,10 @@ def load_reservations():
         df = df[columns]
         df.to_csv(DATA_FILE, index=False, encoding="utf-8-sig")
         return df
+
+    df = pd.DataFrame(columns=columns)
+    df.to_csv(DATA_FILE, index=False, encoding="utf-8-sig")
+    return df
 
     return pd.DataFrame(columns=columns)
 
@@ -517,7 +529,6 @@ else:
 # 전체 예약 현황
 # =============================
 st.divider()
-st.subheader("📋 실험 예약 현황표")
 
 reservations = load_reservations()
 
@@ -530,7 +541,7 @@ else:
         ascending=True,
     ).reset_index(drop=True)
 
-    st.markdown("### 🗑️ 예약 선택 삭제")
+    st.markdown("### 🗑️ 선택 내역 삭제")
 
     delete_options = []
 
@@ -545,14 +556,14 @@ else:
         delete_options.append(label)
 
     selected_delete_labels = st.multiselect(
-        "삭제할 예약을 선택하세요",
+        "삭제할 내역을 선택하세요",
         delete_options,
-        placeholder="삭제할 예약 선택"
+        placeholder="삭제할 내역 선택"
     )
 
-    if st.button("선택한 예약 삭제하기", type="secondary", use_container_width=True):
+    if st.button("선택 내역 삭제", type="secondary", use_container_width=True):
         if not selected_delete_labels:
-            st.warning("삭제할 예약을 먼저 선택해주세요.")
+            st.warning("삭제할 내역을 먼저 선택해주세요.")
         else:
             delete_ids = [
                 int(label.split("|")[0].replace("ID", "").strip())
@@ -560,12 +571,11 @@ else:
             ]
 
             delete_reservation_ids(delete_ids)
-            st.success("선택한 예약이 삭제되었습니다.")
+            st.success("선택한 내역이 삭제되었습니다.")
             st.rerun()
 
     st.divider()
 
-    # 표시용 테이블 생성
     board = reservations.copy()
 
     board["예약자"] = (
